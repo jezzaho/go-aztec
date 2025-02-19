@@ -3,18 +3,36 @@ package main
 import (
 	"errors"
 	"fmt"
+	"math/bits"
 )
 
 type BitBuffer struct {
-	bits []bool
-	mode []bool
+	bits         []bool
+	mode         []bool
+	size         uint32
+	bitsRequired uint32
 }
 
 func NewBitBuffer() *BitBuffer {
 	return &BitBuffer{
-		bits: make([]bool, 0),
-		mode: make([]bool, 0),
+		bits:         make([]bool, 0),
+		mode:         make([]bool, 0),
+		size:         0,
+		bitsRequired: 0,
 	}
+}
+
+func (b *BitBuffer) CalculateSize() {
+	size := uint32(0)
+	for _, v := range b.mode {
+		if v {
+			size += 5
+		} else {
+			size += 8
+		}
+	}
+
+	b.size = size
 }
 
 func (b *BitBuffer) SimpleBinary() string {
@@ -41,15 +59,17 @@ func (b *BitBuffer) BitsToBinary() string {
 	charCounter := 0
 	charLength := 0
 
-	// Start the bit processing loop
-	for bitIndex < len(b.bits) {
+	// Process text encoding (excluding last bits for size)
+	textEnd := len(b.bits) - int(b.bitsRequired) // Ignore size bits for now
+
+	for bitIndex < textEnd {
 		// Determine chunk size based on the mode
 		chunkSize := 5
 		if !b.mode[charCounter] { // If mixed mode (non-alphabetic), use 8 bits
 			chunkSize = 8
 		}
 
-		// Add space after every chunk of bits (except at the beginning)
+		// Add space before each new chunk (except at the start)
 		if bitIndex > 0 && charLength == 0 {
 			textBuffer = append(textBuffer, ' ')
 		}
@@ -65,10 +85,22 @@ func (b *BitBuffer) BitsToBinary() string {
 		bitIndex++
 		charLength++
 
-		// Once we've processed the full chunk for the current character, move to the next character and mode
+		// Once we've processed the full chunk for the current character, move to the next character
 		if charLength == chunkSize {
 			charCounter++
 			charLength = 0
+		}
+	}
+
+	// Append space before adding size encoding
+	textBuffer = append(textBuffer, ' ')
+
+	// Add the size encoding bits at the end
+	for i := textEnd; i < len(b.bits); i++ {
+		if b.bits[i] {
+			textBuffer = append(textBuffer, '1')
+		} else {
+			textBuffer = append(textBuffer, '0')
 		}
 	}
 
@@ -118,10 +150,24 @@ func EncodeTextToBitsWithMode(text string) *BitBuffer {
 	return bitBuffer
 }
 
+func (b *BitBuffer) EncodeSize() error {
+	if b.size <= 0 {
+		return errors.New("size is not correct or not calculated")
+	}
+
+	bitsRequired := uint32(bits.Len32(b.size))
+	b.bitsRequired = bitsRequired
+
+	return b.AppendBits(int(b.size), int(bitsRequired))
+
+}
+
 func main() {
 
 	text := "HELLO WORLD!"
 	b := EncodeTextToBitsWithMode(text)
+	b.CalculateSize()
+	b.EncodeSize()
 	s := b.BitsToBinary()
 	fmt.Print(s)
 }
