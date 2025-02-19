@@ -35,14 +35,30 @@ func (b *BitBuffer) CalculateSize() {
 	b.size = size
 }
 
-func (b *BitBuffer) SimpleBinary() string {
+func (b *BitBuffer) SimpleBinary(chunkSize int) string {
 	var textBuffer []byte
 
-	for _, v := range b.bits {
-		if v {
+	bitIndex := 0
+	charCounter := 0
+	charLength := 0
+
+	for bitIndex < int(b.size) {
+		if bitIndex > 0 && charLength == 0 {
+			textBuffer = append(textBuffer, ' ')
+		}
+
+		if b.bits[bitIndex] {
 			textBuffer = append(textBuffer, '1')
 		} else {
 			textBuffer = append(textBuffer, '0')
+		}
+
+		bitIndex++
+		charLength++
+
+		if charLength == chunkSize {
+			charCounter++
+			charLength = 0
 		}
 	}
 
@@ -162,6 +178,14 @@ func (b *BitBuffer) EncodeSize() error {
 
 }
 
+func (b *BitBuffer) ApplyBitPadding() {
+	padding := (6 - (b.size % 6)) % 6
+	for i := 0; i < int(padding); i++ {
+		b.bits = append(b.bits, false)
+	}
+	b.size += uint32(padding)
+}
+
 func main() {
 
 	text := "HELLO WORLD!"
@@ -169,5 +193,8 @@ func main() {
 	b.CalculateSize()
 	b.EncodeSize()
 	s := b.BitsToBinary()
-	fmt.Print(s)
+	fmt.Println(s)
+	b.ApplyBitPadding()
+	s = b.SimpleBinary(6)
+	fmt.Println(s)
 }
