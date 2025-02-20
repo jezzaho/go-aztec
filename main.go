@@ -186,15 +186,78 @@ func (b *BitBuffer) ApplyBitPadding() {
 	b.size += uint32(padding)
 }
 
+// ERROR CORRECTNES SR
+
+const fieldSize = 256
+const primitivePolynomial = 0x11D // x^8 + x^4 + x^3 + x^2 + 1
+
+var expTable [fieldSize]uint8
+var logTable [fieldSize]uint8
+
+func initGaloisField() {
+	var value uint16 = 1
+
+	// Initialize log table with invalid values
+	for i := range logTable {
+		logTable[i] = 255 // Mark as undefined initially
+	}
+
+	for i := 0; i < fieldSize-1; i++ {
+		expTable[i] = uint8(value)
+		logTable[uint8(value)] = uint8(i)
+
+		value <<= 1
+		if value&0x100 != 0 {
+			value ^= uint16(primitivePolynomial)
+		}
+	}
+	expTable[fieldSize-1] = expTable[0]
+}
+
+func gfDivide(a, b uint8) uint8 {
+	if b == 0 {
+		panic("Division by zero in GF(2⁸)")
+	}
+	if a == 0 {
+		return 0
+	}
+
+	logA := int(logTable[a])
+	logB := int(logTable[b])
+
+	if logA == 255 || logB == 255 {
+		panic("Invalid input value")
+	}
+
+	logResult := (logA - logB + 255) % 255
+	return expTable[logResult]
+}
+
+func gfAdd(a, b int) int {
+	return a ^ b
+}
+func gfMultiply(a, b int) uint8 {
+	if a == 0 || b == 0 {
+		return 0
+	}
+	return expTable[(logTable[a]+logTable[b])%(fieldSize-1)]
+}
+
 func main() {
 
-	text := "HELLO WORLD!"
-	b := EncodeTextToBitsWithMode(text)
-	b.CalculateSize()
-	b.EncodeSize()
-	s := b.BitsToBinary()
-	fmt.Println(s)
-	b.ApplyBitPadding()
-	s = b.SimpleBinary(6)
-	fmt.Println(s)
+	initGaloisField()
+
+	fmt.Println("Addition (5 ⊕ 7):", gfAdd(5, 7))            // Expected: 2
+	fmt.Println("Multiplication (5 ⊗ 7):", gfMultiply(5, 7)) // Expected: 35
+	fmt.Println("Division (35 ÷ 5):", gfDivide(35, 5))       // Expected: 7
+
+	// text := "HELLO WORLD!"
+	// b := EncodeTextToBitsWithMode(text)
+	// b.CalculateSize()
+	// b.EncodeSize()
+	// s := b.BitsToBinary()
+	// fmt.Println(s)
+	// b.ApplyBitPadding()
+	// s = b.SimpleBinary(6)
+	// fmt.Println(s)
 }
