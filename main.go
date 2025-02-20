@@ -243,13 +243,35 @@ func gfMultiply(a, b int) uint8 {
 	return expTable[(logTable[a]+logTable[b])%(fieldSize-1)]
 }
 
+// Generator polynomial
+func createGeneratorPolynomial(t int) []uint8 {
+	g := []uint8{1}
+
+	for i := 0; i < t; i++ {
+		newG := make([]uint8, len(g)+1)
+
+		for j := 0; j < len(g); j++ {
+			newG[j] ^= gfMultiply(int(g[j]), int(expTable[i]))
+		}
+
+		copy(newG[1:], g)
+
+		g = newG
+	}
+
+	return g
+}
+
+func calculateParitySymbols(message []uint8, generator []uint8) []uint8 {
+	numParity := len(generator) - 1
+	remainder := make([]uint8)
+}
+
 func main() {
 
 	initGaloisField()
-
-	fmt.Println("Addition (5 ⊕ 7):", gfAdd(5, 7))            // Expected: 2
-	fmt.Println("Multiplication (5 ⊗ 7):", gfMultiply(5, 7)) // Expected: 35
-	fmt.Println("Division (35 ÷ 5):", gfDivide(35, 5))       // Expected: 7
+	g := createGeneratorPolynomial(5)
+	fmt.Println("Generator Polynomial:", g)
 
 	// text := "HELLO WORLD!"
 	// b := EncodeTextToBitsWithMode(text)
