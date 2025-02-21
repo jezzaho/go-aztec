@@ -3,7 +3,12 @@ package main
 import (
 	"errors"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
+	"log"
 	"math/bits"
+	"os"
 )
 
 type BitBuffer struct {
@@ -307,9 +312,15 @@ func readEncodedWithParity(message []uint8) {
 
 // Constructing Grid Structure
 
+type AztecGrid struct {
+	Size     int
+	Capacity int
+	Grid     [][]bool
+}
+
 const compactLayerSize = 4
 
-func CreateGrid(layers int, compact bool) [][]bool {
+func CreateAztecGrid(layers int, compact bool, bitBuff BitBuffer) *AztecGrid {
 	var size int
 	if compact {
 		size = 11 + (layers-1)*4
@@ -322,8 +333,15 @@ func CreateGrid(layers int, compact bool) [][]bool {
 		grid[i] = make([]bool, size)
 	}
 	AddFinderPattern(grid, layers, compact)
+	AddModeIndicator(grid, layers)
+	AddErrorCorrectionLevel(grid, 3)
+	PlaceData(grid, bitBuff)
 
-	return grid
+	return &AztecGrid{
+		Size:     size,
+		Capacity: size * size,
+		Grid:     grid,
+	}
 }
 
 func AddFinderPattern(grid [][]bool, layers int, compact bool) {
@@ -337,12 +355,32 @@ func AddFinderPattern(grid [][]bool, layers int, compact bool) {
 			grid[x][center-i] = color
 			grid[x][center+i] = color
 		}
-		for y := center - i; y <= center+1; y++ {
+		for y := center - i; y <= center+i; y++ {
 			grid[center-i][y] = color
 			grid[center+i][y] = color
 		}
 	}
 	grid[center][center] = true
+}
+
+func AddModeIndicator(grid [][]bool, layers int) {
+	size := len(grid)
+	grid[0][0] = true
+	grid[size-1][0] = true
+	grid[0][size-1] = true
+}
+func AddErrorCorrectionLevel(grid [][]bool, errorCorrectionLevel int) {
+	size := len(grid)
+	switch errorCorrectionLevel {
+	case 1:
+		grid[0][size-2] = true // przykładowe umiejscowienie wskaźnika
+	case 2:
+		grid[size-2][size-2] = true
+	case 3:
+		grid[size-2][0] = true
+	case 4:
+		grid[size-1][0] = true
+	}
 }
 
 func PrintGrid(grid [][]bool) {
@@ -358,10 +396,75 @@ func PrintGrid(grid [][]bool) {
 	}
 }
 
-func main() {
+// GenerateImage creates a PNG image from the grid with specified pixel size
+func (az *AztecGrid) GenerateImage(pixelSize int, filename string) error {
+	// Calculate the image dimensions
+	height := len(az.Grid) * pixelSize
+	width := len(az.Grid[0]) * pixelSize
 
-	grid := CreateGrid(4, false)
-	PrintGrid(grid)
+	// Create a new white image
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
+	white := color.RGBA{255, 255, 255, 255}
+	black := color.RGBA{0, 0, 0, 255}
+
+	// Fill the image with white first
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			img.Set(x, y, white)
+		}
+	}
+
+	// Draw black pixels for true values
+	for y, row := range az.Grid {
+		for x, cell := range row {
+			if cell {
+				// Fill the pixel block
+				for py := 0; py < pixelSize; py++ {
+					for px := 0; px < pixelSize; px++ {
+						img.Set(x*pixelSize+px, y*pixelSize+py, black)
+					}
+				}
+			}
+		}
+	}
+
+	// Create the output file
+	f, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	// Encode and save the image as PNG
+	return png.Encode(f, img)
+}
+
+func PlaceData(grid [][]bool, bitBuff BitBuffer) {
+	bitIndex := 0
+	size := len(grid)
+
+	for y := 0; y < size; y++ {
+		for x := 0; x < size; x++ {
+			if grid[x][y] != false {
+				continue
+			}
+			if bitIndex < int(bitBuff.size) {
+				grid[y][x] = bitBuff.bits[bitIndex]
+				bitIndex++
+			}
+		}
+	}
+}
+func main() {
+	txt := "HELLO KARCIA KOCHAM CIE"
+
+	buff := EncodeTextToBitsWithMode(txt)
+	buff.CalculateSize()
+	grid := CreateAztecGrid(4, true, *buff)
+	err := grid.GenerateImage(10, "aztec.png")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// initGaloisField()
 	// g := createGeneratorPolynomial(5)
