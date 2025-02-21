@@ -236,7 +236,7 @@ func gfDivide(a, b uint8) uint8 {
 func gfAdd(a, b int) int {
 	return a ^ b
 }
-func gfMultiply(a, b int) uint8 {
+func gfMultiply(a, b uint8) uint8 {
 	if a == 0 || b == 0 {
 		return 0
 	}
@@ -251,7 +251,7 @@ func createGeneratorPolynomial(t int) []uint8 {
 		newG := make([]uint8, len(g)+1)
 
 		for j := 0; j < len(g); j++ {
-			newG[j] ^= gfMultiply(int(g[j]), int(expTable[i]))
+			newG[j] ^= gfMultiply(g[j], expTable[i])
 		}
 
 		copy(newG[1:], g)
@@ -264,18 +264,118 @@ func createGeneratorPolynomial(t int) []uint8 {
 
 func calculateParitySymbols(message []uint8, generator []uint8) []uint8 {
 	numParity := len(generator) - 1
-	remainder := make([]uint8)
+	// Initialize remainder with the correct size
+	remainder := make([]uint8, len(message)+numParity)
+
+	// Copy message into remainder
+	copy(remainder, message)
+
+	// Perform polynomial division
+	for i := 0; i < len(message); i++ {
+		if remainder[i] == 0 {
+			continue // Skip if coefficient is zero
+		}
+
+		coef := remainder[i]
+
+		// XOR with generator polynomial
+		for j := 0; j < len(generator); j++ {
+			remainder[i+j] ^= gfMultiply(coef, generator[j])
+		}
+	}
+
+	// Return only the parity symbols
+	return remainder[len(message):]
+}
+
+func encodeWithParity(message []uint8, numParity int) []uint8 {
+	generator := createGeneratorPolynomial(numParity)
+	parity := calculateParitySymbols(message, generator)
+
+	return append(message, parity...)
+}
+
+// Helper to be deleted
+func readEncodedWithParity(message []uint8) {
+	messageBuffer := ""
+	for _, b := range message {
+		messageBuffer += string(b) + " "
+	}
+
+	fmt.Println(messageBuffer)
+}
+
+// Constructing Grid Structure
+
+const compactLayerSize = 4
+
+func CreateGrid(layers int, compact bool) [][]bool {
+	var size int
+	if compact {
+		size = 11 + (layers-1)*4
+	} else {
+		size = 15 + (layers-1)*4
+	}
+
+	grid := make([][]bool, size)
+	for i := range grid {
+		grid[i] = make([]bool, size)
+	}
+	AddFinderPattern(grid, layers, compact)
+
+	return grid
+}
+
+func AddFinderPattern(grid [][]bool, layers int, compact bool) {
+	size := len(grid)
+	center := size / 2
+	numRings := layers + 1
+
+	for i := 0; i < numRings; i++ {
+		color := (i % 2) == 0
+		for x := center - i; x <= center+i; x++ {
+			grid[x][center-i] = color
+			grid[x][center+i] = color
+		}
+		for y := center - i; y <= center+1; y++ {
+			grid[center-i][y] = color
+			grid[center+i][y] = color
+		}
+	}
+	grid[center][center] = true
+}
+
+func PrintGrid(grid [][]bool) {
+	for _, row := range grid {
+		for _, cell := range row {
+			if cell {
+				fmt.Print("█")
+			} else {
+				fmt.Print(" ")
+			}
+		}
+		fmt.Println()
+	}
 }
 
 func main() {
 
-	initGaloisField()
-	g := createGeneratorPolynomial(5)
-	fmt.Println("Generator Polynomial:", g)
+	grid := CreateGrid(4, false)
+	PrintGrid(grid)
+
+	// initGaloisField()
+	// g := createGeneratorPolynomial(5)
+	// fmt.Println("Generator Polynomial:", g)
+
+	// message := []uint8{72, 69, 76, 76, 79}
+	// numParity := 4
+	// encodedMessage := encodeWithParity(message, numParity)
+	// fmt.Println("Encoded message: ", encodedMessage)
+	// readEncodedWithParity(encodedMessage)
 
 	// text := "HELLO WORLD!"
 	// b := EncodeTextToBitsWithMode(text)
-	// b.CalculateSize()
+	// b.CalculateSize()``
 	// b.EncodeSize()
 	// s := b.BitsToBinary()
 	// fmt.Println(s)
