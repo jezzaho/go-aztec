@@ -7,8 +7,7 @@ import (
 func main() {
 	txt := "HELLO KARCIA KOCHAM CIE"
 
-	buff := EncodeTextToBitsWithMode(txt)
-	buff.CalculateSize()
+	buff, _ := GenerateAztecBitstream(txt, 3)
 	grid := CreateAztecGrid(4, true, *buff)
 	err := grid.GenerateImage(10, "aztec.png")
 	if err != nil {

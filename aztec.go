@@ -141,7 +141,7 @@ func PlaceData(grid [][]bool, bitBuff BitBuffer) {
 
 	for y := 0; y < size; y++ {
 		for x := 0; x < size; x++ {
-			if grid[x][y] != false {
+			if grid[y][x] != false {
 				continue
 			}
 			if bitIndex < int(bitBuff.size) {

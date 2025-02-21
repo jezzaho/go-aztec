@@ -208,7 +208,18 @@ func GenerateAztecBitstream(data string, numParity int) (*BitBuffer, error) {
 	}
 
 	bitBuffer.ApplyBitPadding()
+	uint8message := boolsToUint8(bitBuffer.bits)
+	gf := NewGaloisField()
+
+	rse := RSEncoder{
+		numParity:   numParity,
+		galoisField: gf,
+	}
+	parity := rse.EncodeWithParity(uint8message)
+	parityBits := uint8ToBools(parity)
+
+	bitBuffer.bits = append(bitBuffer.bits, parityBits...)
 
 	// TODO: Finish
-	return nil, nil
+	return bitBuffer, nil
 }
