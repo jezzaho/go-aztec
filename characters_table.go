@@ -122,7 +122,7 @@ var (
 			0: {4, 4},
 			1: {E, 9},
 			2: {E, 9},
-			3: {4, 14},
+			3: {4, 4},
 			4: {E, 0},
 			5: {E, 14},
 		},
@@ -228,17 +228,4 @@ func (s *Segment) Encode(buf *bytes.Buffer) error {
 
 	}
 	return nil
-}
-
-func (e *Encoder) Encode(text string) {
-	segments := SegmentText([]byte(text))
-	optimalSeq, _ := findOptimalSequence(segments)
-	// Dijkstra algo result show graph points we need next point now
-	optimalSeq = optimalSeq[1:]
-	// First segment can be encoded without checking for optimal Sequence
-	segments[0].Encode(&e.bits)
-	for i := 1; i < len(segments); i++ {
-
-	}
-
 }

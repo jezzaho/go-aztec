@@ -38,11 +38,10 @@ import "fmt"
 // }
 
 func main() {
-	text := "HELLOworld!1234"
-	segments := SegmentText([]byte(text))
+	text := "HeL!."
 
-	result, _ := findOptimalSequence(segments)
+	encoder := NewEncoder()
+	encoder.Encode(text)
 
-	fmt.Println("Optimal: ", result)
-
+	fmt.Printf("%v", encoder.bits)
 }

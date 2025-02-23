@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
 )
 
 type EncodingMode byte
@@ -40,93 +41,150 @@ const (
 )
 
 type Encoder struct {
-	bits     bytes.Buffer
-	mode     EncodingMode
-	prevMode EncodingMode
+	bits bytes.Buffer
 }
 
 func NewEncoder() *Encoder {
 	return &Encoder{
-		bits:     *bytes.NewBuffer(make([]byte, 0)),
-		mode:     Upper,
-		prevMode: Upper,
+		bits: *bytes.NewBuffer(make([]byte, 0)),
 	}
 }
 
-func (e *Encoder) encode(data []byte) ([]byte, error) {
-
-	segments := SegmentText(data)
-	if len(segments) == 0 {
-		return nil, errors.New("Data is empty")
+func (e *Encoder) Encode(text string) error {
+	segments := SegmentText([]byte(text))
+	optimalChg, _, err := findOptimalSequence(segments)
+	if err != nil {
+		fmt.Println(err)
 	}
-	currentSeg := segments[0]
-	for _, s := range segments {
-		if s.mode != currentSeg.mode {
-
+	// First segment can be encoded without checking for optimal Sequence
+	segments[0].Encode(&e.bits)
+	for i := 1; i < len(segments); i++ {
+		e.encodeChange(segments[i-1], segments[i], optimalChg[i-1])
+		segments[i].Encode(&e.bits)
+	}
+	return nil
+}
+func (e *Encoder) encodeChange(from, to Segment, isLatch bool) {
+	if isLatch {
+		switch from.mode {
+		case 0:
+			switch to.mode {
+			case 0:
+				break
+			case 1:
+				e.bits.WriteByte(LL_UpperToLow)
+			case 2:
+				e.bits.WriteByte(ML_UpperToMix)
+			case 3:
+				e.bits.WriteByte(PS_AnyToPunc)
+			case 4:
+				e.bits.WriteByte(DL_UpperToDigit)
+			default:
+				break
+			}
+		case 1:
+			switch to.mode {
+			case 0:
+				e.bits.WriteByte(US_LowerToUpper)
+			case 1:
+				break
+			case 2:
+				e.bits.WriteByte(ML_LowerToMix)
+			case 3:
+				e.bits.WriteByte(PS_AnyToPunc)
+			case 4:
+				e.bits.WriteByte(DL_LowerToDigit)
+			default:
+				break
+			}
+		case 2:
+			switch to.mode {
+			case 0:
+				e.bits.WriteByte(UL_MixToUpper)
+			case 1:
+				e.bits.WriteByte(LL_MixToLower)
+			case 2:
+				break
+			case 3:
+				e.bits.WriteByte(PS_AnyToPunc)
+			case 4:
+				e.bits.WriteByte(UL_MixToUpper)
+				e.bits.WriteByte(DL_UpperToDigit)
+			default:
+				break
+			}
+		case 3:
+			switch to.mode {
+			case 0:
+				e.bits.WriteByte(UL_PuncToUpper)
+			case 1:
+				e.bits.WriteByte(UL_PuncToUpper)
+				e.bits.WriteByte(LL_UpperToLow)
+			case 2:
+				e.bits.WriteByte(UL_PuncToUpper)
+				e.bits.WriteByte(ML_UpperToMix)
+			case 3:
+				break
+			case 4:
+				e.bits.WriteByte(UL_PuncToUpper)
+				e.bits.WriteByte(DL_UpperToDigit)
+			default:
+				break
+			}
+		case 4:
+			switch to.mode {
+			case 0:
+				e.bits.WriteByte(UL_DigitToUpper)
+			case 1:
+				e.bits.WriteByte(DL_LowerToDigit)
+			case 2:
+				e.bits.WriteByte(UL_DigitToUpper)
+				e.bits.WriteByte(ML_UpperToMix)
+			case 3:
+				e.bits.WriteByte(PS_AnyToPunc)
+			case 4:
+				break
+			default:
+				break
+			}
+		default:
+			break
 		}
-		s.Encode(&e.bits)
-
 	}
-	return nil, nil
 }
 
-func findOptimalSequence(segments []Segment) ([]int, error) {
-	// Initialize distances array
-	dist := make([][]int, len(segments))
-	for i := range dist {
-		dist[i] = make([]int, len(segments))
+func findOptimalSequence(segments []Segment) ([]bool, int, error) {
+	n := len(segments)
+	if n == 0 {
+		return nil, 0, errors.New("no segments provided")
 	}
 
-	// Initialize previous modes to reconstruct the path
-	prev := make([][]int, len(segments))
-	for i := range prev {
-		prev[i] = make([]int, len(segments))
-	}
+	var changeSeq []bool
+	totalCost := 0
 
-	// Populate the distance and prev matrices
-	for i := 0; i < len(segments)-1; i++ {
-		for j := i + 1; j < len(segments); j++ {
-			from := segments[i].mode
-			to := segments[j].mode
-			// Calculate the cost for each segment transition
-			shiftCost := changeLen[from][to].Shift
-			latchCost := changeLen[from][to].Latch
+	// For each consecutive pair, determine whether to Shift or Latch.
+	for i := 0; i < n-1; i++ {
+		from := segments[i].mode
+		to := segments[i+1].mode
 
-			// Use the shift or latch cost to populate the dist and prev matrices
-			if shiftCost < latchCost {
-				dist[i][j] = shiftCost
-				prev[i][j] = i
-			} else {
-				dist[i][j] = latchCost
-				prev[i][j] = j
-			}
-		}
-	}
-
-	optimalSeq := []int{0} // Start from the first segment
-	current := 0
-	for current < len(segments)-1 {
-		minCost := E // Start with the highest possible cost
-		nextSegment := -1
-
-		// Find the next segment with the minimal cost transition
-		for i := current + 1; i < len(segments); i++ {
-			cost := dist[current][i]
-			if cost < minCost {
-				minCost = cost
-				nextSegment = i
-			}
+		tc := changeLen[from][to]
+		// We decide: if latch cost is less than or equal to shift cost,
+		// then we use latch; otherwise, we use shift.
+		if len(segments[i+1].text) > 1 {
+			changeSeq = append(changeSeq, true) // Latch
+			totalCost += tc.Latch
+		} else if tc.Shift < tc.Latch {
+			changeSeq = append(changeSeq, false) // Shift
+			totalCost += tc.Shift
+		} else if tc.Shift == tc.Latch && len(segments[i+1].text) <= 1 {
+			changeSeq = append(changeSeq, false) // Shift
+			totalCost += tc.Shift
+		} else {
+			changeSeq = append(changeSeq, true) // Latch
+			totalCost += tc.Latch
 		}
 
-		if nextSegment == -1 {
-			break // No valid path found, break the loop
-		}
-
-		// Add the next segment to the optimal sequence
-		optimalSeq = append(optimalSeq, nextSegment)
-		current = nextSegment
 	}
 
-	return optimalSeq, nil
-
+	return changeSeq, totalCost, nil
 }
