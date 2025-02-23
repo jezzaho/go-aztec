@@ -76,7 +76,8 @@ func (e *Encoder) encodeChange(from, to Segment, isLatch bool) {
 			case 2:
 				e.bits.WriteByte(ML_UpperToMix)
 			case 3:
-				e.bits.WriteByte(PS_AnyToPunc)
+				e.bits.WriteByte(ML_UpperToMix)
+				e.bits.WriteByte(PL_MixToPunc)
 			case 4:
 				e.bits.WriteByte(DL_UpperToDigit)
 			default:
@@ -91,7 +92,8 @@ func (e *Encoder) encodeChange(from, to Segment, isLatch bool) {
 			case 2:
 				e.bits.WriteByte(ML_LowerToMix)
 			case 3:
-				e.bits.WriteByte(PS_AnyToPunc)
+				e.bits.WriteByte(ML_LowerToMix)
+				e.bits.WriteByte(PL_MixToPunc)
 			case 4:
 				e.bits.WriteByte(DL_LowerToDigit)
 			default:
@@ -106,7 +108,7 @@ func (e *Encoder) encodeChange(from, to Segment, isLatch bool) {
 			case 2:
 				break
 			case 3:
-				e.bits.WriteByte(PS_AnyToPunc)
+				e.bits.WriteByte(PL_MixToPunc)
 			case 4:
 				e.bits.WriteByte(UL_MixToUpper)
 				e.bits.WriteByte(DL_UpperToDigit)
@@ -141,9 +143,47 @@ func (e *Encoder) encodeChange(from, to Segment, isLatch bool) {
 				e.bits.WriteByte(UL_DigitToUpper)
 				e.bits.WriteByte(ML_UpperToMix)
 			case 3:
-				e.bits.WriteByte(PS_AnyToPunc)
-			case 4:
+				e.bits.WriteByte(UL_DigitToUpper)
+				e.bits.WriteByte(ML_UpperToMix)
+				e.bits.WriteByte(PL_MixToPunc)
+			default:
 				break
+			}
+		default:
+			break
+		}
+		// SHIFTS
+	} else {
+		switch from.mode {
+		case 0:
+			switch to.mode {
+			case 3:
+				e.bits.WriteByte(PS_AnyToPunc)
+			default:
+				break
+			}
+		case 1:
+			switch to.mode {
+			case 0:
+				e.bits.WriteByte(US_LowerToUpper)
+			case 3:
+				e.bits.WriteByte(PS_AnyToPunc)
+			default:
+				break
+			}
+		case 2:
+			switch to.mode {
+			case 3:
+				e.bits.WriteByte(PS_AnyToPunc)
+			default:
+				break
+			}
+		case 4:
+			switch to.mode {
+			case 0:
+				e.bits.WriteByte(US_DigitToUpper)
+			case 3:
+				e.bits.WriteByte(PS_AnyToPunc)
 			default:
 				break
 			}

@@ -38,7 +38,7 @@ import "fmt"
 // }
 
 func main() {
-	text := "HeL!."
+	text := "HeeeLL"
 
 	encoder := NewEncoder()
 	encoder.Encode(text)
