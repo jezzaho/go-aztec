@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 // import (
 // 	"log"
 // )
@@ -34,3 +36,13 @@ package main
 // 	// s = b.SimpleBinary(6)
 // 	// fmt.Println(s)
 // }
+
+func main() {
+	text := "HELLOworld!1234"
+	segments := SegmentText([]byte(text))
+
+	result, _ := findOptimalSequence(segments)
+
+	fmt.Println("Optimal: ", result)
+
+}
