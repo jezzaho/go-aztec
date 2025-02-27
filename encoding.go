@@ -71,9 +71,9 @@ func (e *Encoder) Encode(text string) (int, error) {
 	newChange := Change{}
 	if firstSeg.mode != EncodingMode(Upper) {
 		if segLen(firstSeg) <= 1 && (firstSeg.mode == EncodingMode(Lower) || firstSeg.mode == EncodingMode(Digit)) {
-			newChange = Change{From: firstSeg.mode, To: EncodingMode(Upper), Mode: false}
+			newChange = Change{From: EncodingMode(Upper), To: firstSeg.mode, Mode: false}
 		} else {
-			newChange = Change{From: firstSeg.mode, To: EncodingMode(Upper), Mode: true}
+			newChange = Change{From: EncodingMode(Upper), To: firstSeg.mode, Mode: true}
 		}
 	}
 
