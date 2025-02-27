@@ -43,6 +43,6 @@ func main() {
 	// total, _ := encoder.Encode(text)
 	// fmt.Println(total)
 	// fmt.Printf("%v\n", encoder.bits.Bytes())
-	layers, compact := calculateAztecSymbolSize(2720, 0.20)
-	fmt.Printf("Layers: %v, Compact: %v\n", layers, compact)
+	symbolSize, layers, compact := determineAztecParameters(3159, 0.23)
+	fmt.Printf("Symbol Size: %v, Layers: %v, Compact: %v\n", symbolSize, layers, compact)
 }
