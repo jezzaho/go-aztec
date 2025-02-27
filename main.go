@@ -38,10 +38,9 @@ import "fmt"
 // }
 
 func main() {
-	text := "HeeeLL"
-
+	text := "aB"
 	encoder := NewEncoder()
-	encoder.Encode(text)
-
-	fmt.Printf("%v", encoder.bits)
+	total, _ := encoder.Encode(text)
+	fmt.Println(total)
+	fmt.Printf("%v\n", encoder.bits.Bytes())
 }

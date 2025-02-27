@@ -76,65 +76,83 @@ const E = 99999
 var (
 	changeLen = map[EncodingMode]map[EncodingMode]TravelCost{
 		// Upper
-		0: {
+		EncodingMode(Upper): {
 			// upper
 			// lower
 			// mixed
 			// punct
 			// digit
 			// binary
-			0: {E, 0},
-			1: {E, 5},
-			2: {E, 5},
-			3: {5, 10},
-			4: {E, 5},
-			5: {E, 10},
+			EncodingMode(Upper): {E, 0},
+			EncodingMode(Lower): {E, 5},
+			EncodingMode(Mixed): {E, 5},
+			// Intermediate Latch
+			EncodingMode(Punct):  {5, 10},
+			EncodingMode(Digit):  {E, 5},
+			EncodingMode(Binary): {E, 10},
 		},
 		// Lower
-		1: {
-			0: {5, 10},
-			1: {E, 0},
-			2: {E, 5},
-			3: {5, 10},
-			4: {E, 5},
-			5: {E, 10},
+		EncodingMode(Lower): {
+			// Intermediate Latch
+			EncodingMode(Upper): {5, 10},
+			EncodingMode(Lower): {E, 0},
+			EncodingMode(Mixed): {E, 5},
+			// Intermediate Latch
+			EncodingMode(Punct):  {5, 10},
+			EncodingMode(Digit):  {E, 5},
+			EncodingMode(Binary): {E, 10},
 		},
 		//Mixed
-		2: {
-			0: {E, 5},
-			1: {E, 5},
-			2: {E, 0},
-			3: {5, 5},
-			4: {E, 10},
-			5: {E, 10},
+		EncodingMode(Mixed): {
+			EncodingMode(Upper): {E, 5},
+			EncodingMode(Lower): {E, 5},
+			EncodingMode(Mixed): {E, 0},
+			EncodingMode(Punct): {5, 5},
+			// Intermediate Latch
+			EncodingMode(Digit):  {E, 10},
+			EncodingMode(Binary): {E, 10},
 		},
 		// Punct
-		3: {
-			0: {E, 5},
-			1: {E, 10},
-			2: {E, 10},
-			3: {E, 0},
-			4: {E, 10},
-			5: {E, 15},
+		EncodingMode(Punct): {
+			EncodingMode(Upper): {E, 5},
+			// Intermediate Latch
+			EncodingMode(Lower): {E, 10},
+			// Intermediate Latch
+			EncodingMode(Mixed): {E, 10},
+			EncodingMode(Punct): {E, 0},
+			// Intermediate Latch
+			EncodingMode(Digit):  {E, 10},
+			EncodingMode(Binary): {E, 15},
 		},
 		// Digit
-		4: {
-			0: {4, 4},
-			1: {E, 9},
-			2: {E, 9},
-			3: {4, 4},
-			4: {E, 0},
-			5: {E, 14},
+		EncodingMode(Digit): {
+			EncodingMode(Upper):  {4, 4},
+			EncodingMode(Lower):  {E, 9},
+			EncodingMode(Mixed):  {E, 9},
+			EncodingMode(Punct):  {4, 14},
+			EncodingMode(Digit):  {E, 0},
+			EncodingMode(Binary): {E, 14},
 		},
 		// Binary
-		5: {
-			0: {E, 0},
-			1: {E, 0},
-			2: {E, 0},
-			3: {E, 0},
-			4: {E, 0},
-			5: {E, 0},
+		EncodingMode(Binary): {
+			EncodingMode(Upper):  {E, 0},
+			EncodingMode(Lower):  {E, 0},
+			EncodingMode(Mixed):  {E, 0},
+			EncodingMode(Punct):  {E, 0},
+			EncodingMode(Digit):  {E, 0},
+			EncodingMode(Binary): {E, 0},
 		},
+	}
+)
+
+var (
+	charSize = map[EncodingMode]int{
+		EncodingMode(Upper):  5,
+		EncodingMode(Lower):  5,
+		EncodingMode(Mixed):  5,
+		EncodingMode(Punct):  5,
+		EncodingMode(Digit):  4,
+		EncodingMode(Binary): 8,
 	}
 )
 
@@ -173,11 +191,6 @@ func belongsTo(char byte, group []CC) bool {
 // 		char == '{' || char == '}' || char == '\''
 // }
 
-type Segment struct {
-	mode EncodingMode
-	text string
-}
-
 func getMode(char byte) EncodingMode {
 	switch {
 	case belongsTo(char, upperChars):
@@ -193,6 +206,11 @@ func getMode(char byte) EncodingMode {
 	default:
 		return Binary
 	}
+}
+
+type Segment struct {
+	mode EncodingMode
+	text string
 }
 
 func SegmentText(text []byte) []Segment {
