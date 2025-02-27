@@ -38,9 +38,11 @@ import "fmt"
 // }
 
 func main() {
-	text := "010101110101010010101010100110"
-	encoder := NewEncoder()
-	total, _ := encoder.Encode(text)
-	fmt.Println(total)
-	fmt.Printf("%v\n", encoder.bits.Bytes())
+	// text := "a12"
+	// encoder := NewEncoder()
+	// total, _ := encoder.Encode(text)
+	// fmt.Println(total)
+	// fmt.Printf("%v\n", encoder.bits.Bytes())
+	layers, compact := calculateAztecSymbolSize(2720, 0.20)
+	fmt.Printf("Layers: %v, Compact: %v\n", layers, compact)
 }
