@@ -3,8 +3,14 @@ package main
 import "container/heap"
 
 type CostState struct {
-	mode EncodingMode
-	cost int
+	mode  EncodingMode
+	cost  int
+	state State
+}
+type State struct {
+	mode     EncodingMode
+	prevMode EncodingMode
+	change   bool // true if last was latch
 }
 type PriorityQueue []CostState
 
@@ -48,7 +54,7 @@ func precomputeMinimalCosts() (map[EncodingMode]map[EncodingMode]int, map[Encodi
 
 		pq := &PriorityQueue{}
 		heap.Init(pq)
-		heap.Push(pq, CostState{src, 0})
+		heap.Push(pq, CostState{src, 0, State{src, src, false}})
 
 		for pq.Len() > 0 {
 			current := heap.Pop(pq).(CostState)
@@ -60,14 +66,14 @@ func precomputeMinimalCosts() (map[EncodingMode]map[EncodingMode]int, map[Encodi
 					newCost := currentCost + costs.Shift
 					if newCost < distShift[nextMode] {
 						distShift[nextMode] = newCost
-						heap.Push(pq, CostState{nextMode, newCost})
+						heap.Push(pq, CostState{nextMode, newCost, State{nextMode, currentMode, false}})
 					}
 				}
 				if costs.Latch != E {
 					newCost := currentCost + costs.Latch
 					if newCost < distLatch[nextMode] {
 						distLatch[nextMode] = newCost
-						heap.Push(pq, CostState{nextMode, newCost})
+						heap.Push(pq, CostState{nextMode, newCost, State{nextMode, currentMode, true}})
 					}
 				}
 			}

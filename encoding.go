@@ -66,13 +66,25 @@ func (e *Encoder) Encode(text string) (int, error) {
 	segments := SegmentText([]byte(text))
 	totalCost, changes := findOptimalSequence(segments)
 
-	currentSegment := segments[0]
-	currentSegment.Encode(&e.bits)
-	for i := 0; i < len(changes); i++ {
-		e.encodeChange(changes[i].From, changes[i].To, changes[i].Mode)
-		currentSegment = segments[i+1]
-		currentSegment.Encode(&e.bits)
+	// Add a change to Upper if necessary at beggining
+	firstSeg := segments[0]
+	newChange := Change{}
+	if firstSeg.mode != EncodingMode(Upper) {
+		if segLen(firstSeg) <= 1 && (firstSeg.mode == EncodingMode(Lower) || firstSeg.mode == EncodingMode(Digit)) {
+			newChange = Change{From: firstSeg.mode, To: EncodingMode(Upper), Mode: false}
+		} else {
+			newChange = Change{From: firstSeg.mode, To: EncodingMode(Upper), Mode: true}
+		}
 	}
+
+	if newChange != (Change{}) {
+		e.encodeChange(newChange.From, newChange.To, newChange.Mode)
+	}
+	for i := 0; i < len(changes); i++ {
+		segments[i].Encode(&e.bits)
+		e.encodeChange(changes[i].From, changes[i].To, changes[i].Mode)
+	}
+	segments[len(changes)].Encode(&e.bits)
 	return totalCost, nil
 }
 
@@ -211,24 +223,17 @@ type Change struct {
 	Mode bool // either latch or shift
 }
 
-type dpState struct {
-	cost          int
-	prevMode      EncodingMode
-	changeIsLatch bool
-}
-
 func findOptimalSequence(segments []Segment) (int, []Change) {
 	if len(segments) == 0 {
 		return 0, nil
 	}
-
 	shiftCost, latchCost := precomputeMinimalCosts()
-
 	dp := make([]map[EncodingMode]dpState, len(segments))
 	for i := range dp {
 		dp[i] = make(map[EncodingMode]dpState)
 	}
 
+	// Initialize the first segment
 	firstSeg := segments[0]
 	firstCost := segCost(firstSeg)
 	dp[0][firstSeg.mode] = dpState{
@@ -244,42 +249,37 @@ func findOptimalSequence(segments []Segment) (int, []Change) {
 		encodingCost := length * charSize[currentMode]
 
 		for prevMode, prevState := range dp[i-1] {
+			// Try latch operation
+			lc := latchCost[prevMode][currentMode]
+			if lc != E {
+				totalCost := prevState.cost + lc + encodingCost
+				state, exists := dp[i][currentMode]
+				if !exists || totalCost < state.cost {
+					dp[i][currentMode] = dpState{
+						cost:          totalCost,
+						prevMode:      prevMode,
+						changeIsLatch: true,
+					}
+				}
+			}
+
+			// Try shift operation for single-character segments
 			if length == 1 {
 				sc := shiftCost[prevMode][currentMode]
 				if sc != E {
 					totalCost := prevState.cost + sc + encodingCost
-					state, exists := dp[i][currentMode]
+
+					// For a shift, the effective mode after encoding remains the same as before
+					// This is critical - we're storing this state in prevMode, not currentMode
+					state, exists := dp[i][prevMode]
 					if !exists || totalCost < state.cost {
-						dp[i][currentMode] = dpState{
+						dp[i][prevMode] = dpState{
 							cost:          totalCost,
 							prevMode:      prevMode,
 							changeIsLatch: false,
-						}
-					}
-				}
-
-				lc := latchCost[prevMode][currentMode]
-				if lc != E {
-					totalCost := prevState.cost + lc + encodingCost
-					state, exists := dp[i][currentMode]
-					if !exists || totalCost < state.cost {
-						dp[i][currentMode] = dpState{
-							cost:          totalCost,
-							prevMode:      prevMode,
-							changeIsLatch: true,
-						}
-					}
-				}
-			} else {
-				lc := latchCost[prevMode][currentMode]
-				if lc != E {
-					totalCost := prevState.cost + lc + encodingCost
-					state, exists := dp[i][currentMode]
-					if !exists || totalCost < state.cost {
-						dp[i][currentMode] = dpState{
-							cost:          totalCost,
-							prevMode:      prevMode,
-							changeIsLatch: true,
+							// Record that we used a shift for reconstruction
+							usedShift:   true,
+							shiftToMode: currentMode,
 						}
 					}
 				}
@@ -287,6 +287,7 @@ func findOptimalSequence(segments []Segment) (int, []Change) {
 		}
 	}
 
+	// Find minimum cost ending mode
 	minCost := math.MaxInt32
 	var bestMode EncodingMode
 	for mode, state := range dp[len(segments)-1] {
@@ -300,19 +301,41 @@ func findOptimalSequence(segments []Segment) (int, []Change) {
 		return 0, nil
 	}
 
+	// Reconstruct the changes
 	changes := []Change{}
 	currentMode := bestMode
+
 	for i := len(segments) - 1; i > 0; i-- {
 		state := dp[i][currentMode]
-		changes = append([]Change{{
-			From: state.prevMode,
-			To:   currentMode,
-			Mode: state.changeIsLatch,
-		}}, changes...)
+
+		// If we used a shift at this position
+		if state.usedShift {
+			changes = append([]Change{{
+				From: state.prevMode,
+				To:   state.shiftToMode,
+				Mode: false, // false for shift
+			}}, changes...)
+		} else if state.changeIsLatch {
+			// If we used a latch at this position
+			changes = append([]Change{{
+				From: state.prevMode,
+				To:   currentMode,
+				Mode: true, // true for latch
+			}}, changes...)
+		}
+
 		currentMode = state.prevMode
 	}
 
 	return minCost, changes
+}
+
+type dpState struct {
+	cost          int
+	prevMode      EncodingMode
+	changeIsLatch bool
+	usedShift     bool
+	shiftToMode   EncodingMode
 }
 
 func segLen(seg Segment) int {

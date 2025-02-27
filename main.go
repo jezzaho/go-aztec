@@ -38,7 +38,7 @@ import "fmt"
 // }
 
 func main() {
-	text := "aB"
+	text := "Ab!!aa"
 	encoder := NewEncoder()
 	total, _ := encoder.Encode(text)
 	fmt.Println(total)
