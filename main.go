@@ -38,11 +38,18 @@ import "fmt"
 // }
 
 func main() {
-	// text := "a12"
-	// encoder := NewEncoder()
-	// total, _ := encoder.Encode(text)
-	// fmt.Println(total)
-	// fmt.Printf("%v\n", encoder.bits.Bytes())
-	symbolSize, layers, compact := determineAztecParameters(3159, 0.23)
-	fmt.Printf("Symbol Size: %v, Layers: %v, Compact: %v\n", symbolSize, layers, compact)
+	text := "1"
+	encoder := NewEncoder()
+	encoder.WriteText(text)
+	fmt.Printf("%v\n", encoder.bits.Bytes())
+	encoder.WriteBit(true)
+	fmt.Printf("%v\n", encoder.bits.Bytes())
+
+	// bitarray := NewBitArray(1)
+	// bitarray.ToBitArray([]byte(text))
+	// var bytesArray []byte
+	// bitarray.ToBytes(4, bytesArray, 0, 2)
+	// fmt.Printf("%v\n", bitarray.bits)
+	// symbolSize, layers, compact := determineAztecParameters(3159, 0.23)
+	// fmt.Printf("Symbol Size: %v, Layers: %v, Compact: %v\n", symbolSize, layers, compact)
 }

@@ -49,18 +49,28 @@ func NewEncoder() *Encoder {
 	}
 }
 
-// func (e *Encoder) Encode(text string) error {
-// 	segments := SegmentText([]byte(text))
-// 	optimalChg, _,  := findOptimalSequence(segments)
+func (e *Encoder) WriteText(text string) {
+	for _, c := range text {
+		e.bits.WriteByte(byte(c))
+	}
+}
 
-//		// First segment can be encoded without checking for optimal Sequence
-//		segments[0].Encode(&e.bits)
-//		for i := 1; i < len(segments); i++ {
-//			e.encodeChange(segments[i-1], segments[i], optimalChg[i-1])
-//			segments[i].Encode(&e.bits)
-//		}
-//		return nil
-//	}
+func (e *Encoder) WriteBit(bit bool) error {
+	byteIdx := e.bits.Len() - 1
+	bitPos := 7 - e.bits.Len()%8
+	if e.bits.Len()%8 == 0 {
+		e.bits.WriteByte(0)
+	}
+	data := e.bits.Bytes()
+	if bit {
+		data[byteIdx] |= 1 << bitPos
+	} else {
+		data[byteIdx] &= ^(1 << bitPos)
+	}
+	return nil
+}
+
+	
 
 func (e *Encoder) Encode(text string) (int, error) {
 	segments := SegmentText([]byte(text))
