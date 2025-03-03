@@ -1,6 +1,27 @@
 package main
 
-// import "errors"
+import "bytes"
+
+/*
+	ByteStream
+
+ByteStream allows storing data in byteSlices
+*/
+type ByteStream struct {
+	Bytes bytes.Buffer
+}
+
+func NewByteStream() *ByteStream {
+	return &ByteStream{
+		Bytes: *bytes.NewBuffer(make([]byte, 0)),
+	}
+}
+func (b *ByteStream) WriteByte(data byte) {
+	b.Bytes.WriteByte(data)
+}
+func (b *ByteStream) WriteBytes(data []byte) {
+	b.Bytes.Write(data)
+}
 
 // type BitArray struct {
 // 	bits []int

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"math"
 )
 
@@ -40,40 +39,22 @@ const (
 )
 
 type Encoder struct {
-	bits bytes.Buffer
+	Input  *ByteStream
+	Output *ByteStream
 }
 
 func NewEncoder() *Encoder {
 	return &Encoder{
-		bits: *bytes.NewBuffer(make([]byte, 0)),
+		Output: NewByteStream(),
 	}
 }
-
-func (e *Encoder) WriteText(text string) {
-	for _, c := range text {
-		e.bits.WriteByte(byte(c))
-	}
+func (e *Encoder) addData(data *ByteStream) {
+	e.Input = data
 }
 
-func (e *Encoder) WriteBit(bit bool) error {
-	byteIdx := e.bits.Len() - 1
-	bitPos := 7 - e.bits.Len()%8
-	if e.bits.Len()%8 == 0 {
-		e.bits.WriteByte(0)
-	}
-	data := e.bits.Bytes()
-	if bit {
-		data[byteIdx] |= 1 << bitPos
-	} else {
-		data[byteIdx] &= ^(1 << bitPos)
-	}
-	return nil
-}
-
-	
-
-func (e *Encoder) Encode(text string) (int, error) {
-	segments := SegmentText([]byte(text))
+func (e *Encoder) Encode(stream *ByteStream) (int, error) {
+	e.addData(stream)
+	segments := SegmentText([]byte(e.Input.Bytes.Bytes()))
 	totalCost, changes := findOptimalSequence(segments)
 
 	// Add a change to Upper if necessary at beggining
@@ -91,10 +72,10 @@ func (e *Encoder) Encode(text string) (int, error) {
 		e.encodeChange(newChange.From, newChange.To, newChange.Mode)
 	}
 	for i := 0; i < len(changes); i++ {
-		segments[i].Encode(&e.bits)
+		segments[i].Encode(&e.Output.Bytes)
 		e.encodeChange(changes[i].From, changes[i].To, changes[i].Mode)
 	}
-	segments[len(changes)].Encode(&e.bits)
+	segments[len(changes)].Encode(&e.Output.Bytes)
 	return totalCost, nil
 }
 
@@ -106,80 +87,80 @@ func (e *Encoder) encodeChange(from, to EncodingMode, isLatch bool) {
 			case EncodingMode(Upper):
 				break
 			case EncodingMode(Lower):
-				e.bits.WriteByte(LL_UpperToLow)
+				e.Output.Bytes.WriteByte(LL_UpperToLow)
 			case EncodingMode(Mixed):
-				e.bits.WriteByte(ML_UpperToMix)
+				e.Output.Bytes.WriteByte(ML_UpperToMix)
 			case EncodingMode(Punct):
-				e.bits.WriteByte(ML_UpperToMix)
-				e.bits.WriteByte(PL_MixToPunc)
+				e.Output.Bytes.WriteByte(ML_UpperToMix)
+				e.Output.Bytes.WriteByte(PL_MixToPunc)
 			case EncodingMode(Digit):
-				e.bits.WriteByte(DL_UpperToDigit)
+				e.Output.Bytes.WriteByte(DL_UpperToDigit)
 			default:
 				break
 			}
 		case EncodingMode(Lower):
 			switch to {
 			case EncodingMode(Upper):
-				e.bits.WriteByte(US_LowerToUpper)
+				e.Output.Bytes.WriteByte(US_LowerToUpper)
 			case EncodingMode(Lower):
 				break
 			case EncodingMode(Mixed):
-				e.bits.WriteByte(ML_LowerToMix)
+				e.Output.Bytes.WriteByte(ML_LowerToMix)
 			case EncodingMode(Punct):
-				e.bits.WriteByte(ML_LowerToMix)
-				e.bits.WriteByte(PL_MixToPunc)
+				e.Output.Bytes.WriteByte(ML_LowerToMix)
+				e.Output.Bytes.WriteByte(PL_MixToPunc)
 			case EncodingMode(Digit):
-				e.bits.WriteByte(DL_LowerToDigit)
+				e.Output.Bytes.WriteByte(DL_LowerToDigit)
 			default:
 				break
 			}
 		case EncodingMode(Mixed):
 			switch to {
 			case EncodingMode(Upper):
-				e.bits.WriteByte(UL_MixToUpper)
+				e.Output.Bytes.WriteByte(UL_MixToUpper)
 			case EncodingMode(Lower):
-				e.bits.WriteByte(LL_MixToLower)
+				e.Output.Bytes.WriteByte(LL_MixToLower)
 			case EncodingMode(Mixed):
 				break
 			case EncodingMode(Punct):
-				e.bits.WriteByte(PL_MixToPunc)
+				e.Output.Bytes.WriteByte(PL_MixToPunc)
 			case EncodingMode(Digit):
-				e.bits.WriteByte(UL_MixToUpper)
-				e.bits.WriteByte(DL_UpperToDigit)
+				e.Output.Bytes.WriteByte(UL_MixToUpper)
+				e.Output.Bytes.WriteByte(DL_UpperToDigit)
 			default:
 				break
 			}
 		case EncodingMode(Punct):
 			switch to {
 			case EncodingMode(Upper):
-				e.bits.WriteByte(UL_PuncToUpper)
+				e.Output.Bytes.WriteByte(UL_PuncToUpper)
 			case EncodingMode(Lower):
-				e.bits.WriteByte(UL_PuncToUpper)
-				e.bits.WriteByte(LL_UpperToLow)
+				e.Output.Bytes.WriteByte(UL_PuncToUpper)
+				e.Output.Bytes.WriteByte(LL_UpperToLow)
 			case EncodingMode(Mixed):
-				e.bits.WriteByte(UL_PuncToUpper)
-				e.bits.WriteByte(ML_UpperToMix)
+				e.Output.Bytes.WriteByte(UL_PuncToUpper)
+				e.Output.Bytes.WriteByte(ML_UpperToMix)
 			case EncodingMode(Punct):
 				break
 			case EncodingMode(Digit):
-				e.bits.WriteByte(UL_PuncToUpper)
-				e.bits.WriteByte(DL_UpperToDigit)
+				e.Output.Bytes.WriteByte(UL_PuncToUpper)
+				e.Output.Bytes.WriteByte(DL_UpperToDigit)
 			default:
 				break
 			}
 		case EncodingMode(Digit):
 			switch to {
 			case EncodingMode(Upper):
-				e.bits.WriteByte(UL_DigitToUpper)
+				e.Output.Bytes.WriteByte(UL_DigitToUpper)
 			case EncodingMode(Lower):
-				e.bits.WriteByte(DL_LowerToDigit)
+				e.Output.Bytes.WriteByte(DL_LowerToDigit)
 			case EncodingMode(Mixed):
-				e.bits.WriteByte(UL_DigitToUpper)
-				e.bits.WriteByte(ML_UpperToMix)
+				e.Output.Bytes.WriteByte(UL_DigitToUpper)
+				e.Output.Bytes.WriteByte(ML_UpperToMix)
 			case EncodingMode(Punct):
-				e.bits.WriteByte(UL_DigitToUpper)
-				e.bits.WriteByte(ML_UpperToMix)
-				e.bits.WriteByte(PL_MixToPunc)
+				e.Output.Bytes.WriteByte(UL_DigitToUpper)
+				e.Output.Bytes.WriteByte(ML_UpperToMix)
+				e.Output.Bytes.WriteByte(PL_MixToPunc)
 			default:
 				break
 			}
@@ -192,32 +173,32 @@ func (e *Encoder) encodeChange(from, to EncodingMode, isLatch bool) {
 		case EncodingMode(Upper):
 			switch to {
 			case EncodingMode(Punct):
-				e.bits.WriteByte(PS_AnyToPunc)
+				e.Output.Bytes.WriteByte(PS_AnyToPunc)
 			default:
 				break
 			}
 		case EncodingMode(Lower):
 			switch to {
 			case EncodingMode(Upper):
-				e.bits.WriteByte(US_LowerToUpper)
+				e.Output.Bytes.WriteByte(US_LowerToUpper)
 			case EncodingMode(Punct):
-				e.bits.WriteByte(PS_AnyToPunc)
+				e.Output.Bytes.WriteByte(PS_AnyToPunc)
 			default:
 				break
 			}
 		case EncodingMode(Mixed):
 			switch to {
 			case EncodingMode(Upper):
-				e.bits.WriteByte(PS_AnyToPunc)
+				e.Output.Bytes.WriteByte(PS_AnyToPunc)
 			default:
 				break
 			}
 		case EncodingMode(Digit):
 			switch to {
 			case EncodingMode(Upper):
-				e.bits.WriteByte(US_DigitToUpper)
+				e.Output.Bytes.WriteByte(US_DigitToUpper)
 			case EncodingMode(Punct):
-				e.bits.WriteByte(PS_AnyToPunc)
+				e.Output.Bytes.WriteByte(PS_AnyToPunc)
 			default:
 				break
 			}
@@ -353,4 +334,69 @@ func segLen(seg Segment) int {
 }
 func segCost(seg Segment) int {
 	return segLen(seg) * charSize[seg.mode]
+}
+
+// Stuff bits
+type BitWriter struct {
+	buffer      ByteStream
+	currentByte byte
+	bitCount    int
+}
+
+func (bw *BitWriter) WriteBit(bit int) {
+	if bit == 1 {
+		bw.currentByte |= (1 << (7 - bw.bitCount))
+	}
+	bw.bitCount++
+	if bw.bitCount == 8 {
+		bw.buffer.WriteByte(bw.currentByte)
+		bw.currentByte = 0
+		bw.bitCount = 0
+	}
+}
+func (bw *BitWriter) WriteBits(value uint, length int) {
+	for i := length; i >= 0; i-- {
+		bw.WriteBit(int((value >> uint(i)) & 1))
+	}
+}
+func (bw *BitWriter) Flush() {
+	if bw.bitCount > 0 {
+		bw.buffer.WriteByte(bw.currentByte)
+	}
+}
+
+func (bw *BitWriter) Bytes() []byte {
+	return bw.buffer.Bytes.Bytes()
+}
+
+func (e *Encoder) StuffBits(wordSize int) {
+	bw := BitWriter{}
+	n := e.Output.Bytes.Len() * 8
+	mask := (1 << wordSize) - 2
+
+	for i := 0; i < n; i += wordSize {
+		word := 0
+		for j := 0; j < wordSize; j++ {
+			bitIndex := (i + j) % 8
+			byteIndex := (i + j) / 8
+			if byteIndex < e.Output.Bytes.Len() && ((e.Output.Bytes.Bytes()[byteIndex]>>(7-bitIndex))&1) == 1 {
+				word |= 1 << (wordSize - 1 - j)
+			}
+		}
+
+		if (word & mask) == mask {
+			bw.WriteBits(uint(word&mask), wordSize)
+			i--
+		} else if (word & mask) == 0 {
+			bw.WriteBits(uint(word|1), wordSize)
+			i--
+		} else {
+			bw.WriteBits(uint(word), wordSize)
+		}
+	}
+
+	bw.Flush()
+	e.Output = NewByteStream()
+	e.Output.WriteBytes(bw.Bytes())
+
 }

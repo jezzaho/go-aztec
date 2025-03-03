@@ -38,12 +38,15 @@ import "fmt"
 // }
 
 func main() {
-	text := "1"
+	text := "ABCD123"
+	stream := NewByteStream()
+	stream.WriteBytes([]byte(text))
+	fmt.Printf("%v\n", stream.Bytes.Bytes())
 	encoder := NewEncoder()
-	encoder.WriteText(text)
-	fmt.Printf("%v\n", encoder.bits.Bytes())
-	encoder.WriteBit(true)
-	fmt.Printf("%v\n", encoder.bits.Bytes())
+	encoder.Encode(stream)
+	fmt.Printf("%v\n", encoder.Output.Bytes.Bytes())
+	encoder.StuffBits(6)
+	fmt.Printf("%v\n", encoder.Output.Bytes.Bytes())
 
 	// bitarray := NewBitArray(1)
 	// bitarray.ToBitArray([]byte(text))
