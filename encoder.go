@@ -123,3 +123,5 @@ func NewEncoder() *Encoder {
 		CHAR_MAP:    initCM(),
 	}
 }
+
+var TheEncoder = NewEncoder()
